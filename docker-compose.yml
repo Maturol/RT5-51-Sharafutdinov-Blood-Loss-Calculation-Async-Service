@@ -1,0 +1,101 @@
+services:
+  blood-loss-calc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./templates:/app/templates
+      - ./resources:/app/resources
+    environment:
+      - GIN_MODE=release
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=bloodloss_db
+      - DB_USER=postgres
+      - DB_PASS=12345
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks: 
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      - minio
+      - postgres
+      - redis
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks: 
+      - app-network
+    restart: unless-stopped
+
+  minio-client:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/blood-loss-images;
+      /usr/bin/mc policy set public myminio/blood-loss-images;
+      echo 'Minio initialized successfully';
+      tail -f /dev/null
+      "
+    networks: 
+      - app-network
+    restart: on-failure
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345
+      POSTGRES_DB: bloodloss_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:  
+      - app-network
+    restart: unless-stopped
+
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+    networks:  
+      - app-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    restart: unless-stopped
+
+volumes:
+  minio_data:
+  postgres_data:
+  redis_data:
+
+networks:  
+  app-network:
+    driver: bridge
