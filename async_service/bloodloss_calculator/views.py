@@ -166,7 +166,6 @@ def send_result_to_main_service(bloodlosscalc_id, operation_id, total_blood_loss
             'bloodlosscalc_id': bloodlosscalc_id,
             'operation_id': operation_id,
             'total_blood_loss': total_blood_loss,
-            'calculation_id': f'django_{task_id}',
             'api_key': API_KEY
         }
         
